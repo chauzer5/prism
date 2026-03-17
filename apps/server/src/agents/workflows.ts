@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
-import type { Workflow, WorkflowStep, ThinkingLevel } from "@cyberdeck/shared";
+import type { Workflow, WorkflowStep, ThinkingLevel } from "@prism/shared";
 
 const PI_AGENTS_DIR = path.join(os.homedir(), ".pi", "agent", "agents");
 const WORKFLOW_FILE = path.join(PI_AGENTS_DIR, "agent-workflow.yaml");

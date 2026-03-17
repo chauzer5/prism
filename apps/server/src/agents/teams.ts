@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
-import type { Team, TeamMember, ThinkingLevel } from "@cyberdeck/shared";
+import type { Team, TeamMember, ThinkingLevel } from "@prism/shared";
 
 const PI_AGENTS_DIR = path.join(os.homedir(), ".pi", "agent", "agents");
 

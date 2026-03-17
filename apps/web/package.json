@@ -1,5 +1,5 @@
 {
-  "name": "@cyberdeck/web",
+  "name": "@prism/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@cyberdeck/shared": "*",
+    "@prism/shared": "*",
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.67.2",
     "@tanstack/react-router": "^1.114.3",

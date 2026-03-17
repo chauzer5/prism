@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Users, Plus, Trash2, Bot, X } from "lucide-react";
 import { trpc } from "@/trpc";
 import { cn } from "@/lib/utils";
-import type { Team, ThinkingLevel } from "@cyberdeck/shared";
+import type { Team, ThinkingLevel } from "@prism/shared";
 
 const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh"];
 

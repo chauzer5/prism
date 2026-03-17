@@ -13,7 +13,7 @@ import {
 import { trpc } from "@/trpc";
 import { cn } from "@/lib/utils";
 import { NumberInput } from "@/components/ui/number-input";
-import type { Workflow, WorkflowStep, ThinkingLevel } from "@cyberdeck/shared";
+import type { Workflow, WorkflowStep, ThinkingLevel } from "@prism/shared";
 
 const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh"];
 

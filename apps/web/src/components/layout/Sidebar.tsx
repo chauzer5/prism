@@ -8,6 +8,8 @@ import {
   Monitor,
   Users,
   GitCompareArrows,
+  GitMerge,
+  LayoutList,
   Settings,
   PanelLeftClose,
   PanelLeft,
@@ -39,6 +41,8 @@ export function Sidebar() {
       label: "Work",
       items: [
         { icon: CheckSquare, label: "Todos", href: "/todos", count: activeTodoCount > 0 ? activeTodoCount : undefined },
+        { icon: GitMerge, label: "GitLab", href: "/gitlab" },
+        { icon: LayoutList, label: "Linear", href: "/linear" },
         ...(slackEnabled ? [{ icon: MessageSquare, label: "Slack", href: "/slack" } as const] : []),
         { icon: Monitor, label: "Agents", href: "/agents" },
       ],
@@ -69,7 +73,7 @@ export function Sidebar() {
               <Cpu className="h-4 w-4 text-neon-pink-bright" />
             </div>
             <span className="font-display text-[13px] font-bold tracking-[3px] uppercase text-neon-pink" style={{ textShadow: "0 0 12px rgba(255, 45, 123, 0.6), 0 0 4px rgba(255, 45, 123, 0.3)" }}>
-              Cyberdeck
+              PRISM
             </span>
           </div>
         )}

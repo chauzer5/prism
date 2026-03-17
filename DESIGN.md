@@ -1,8 +1,8 @@
-# Cyberdeck — Design Document
+# PRISM — Design Document
 
 ## Overview
 
-Cyberdeck is a local-only personal work dashboard that aggregates Slack summaries, todos from multiple sources, and AI agent monitoring into a single webapp. It runs entirely on localhost — no cloud services, no accounts, no data leaves your machine.
+PRISM is a local-only personal work dashboard that aggregates Slack summaries, todos from multiple sources, AI agent monitoring, GitLab merge requests, and Linear issues into a single webapp. It runs entirely on localhost — no cloud services, no accounts, no data leaves your machine.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Browser (React)
 - **WebSockets** — real-time agent stdout/stderr streaming, status updates
 
 ### Shared
-- `@cyberdeck/shared` — type definitions shared between client and server
+- `@prism/shared` — type definitions shared between client and server
 - Panel, Todo, Agent, Team, Workflow, Integration types
 - WebSocket event/command type definitions
 
@@ -41,7 +41,7 @@ Browser (React)
 No authentication, no cloud sync, no remote APIs (except Slack's, via desktop credentials). The app is a personal tool that runs on your machine. This simplifies everything: no auth middleware, no deployment, no user management.
 
 ### Desktop Auth for Slack
-Instead of requiring an OAuth app installation (which needs Slack admin approval), Cyberdeck extracts credentials directly from the Slack desktop app on macOS. This means zero Slack setup — if you're logged into Slack desktop, Cyberdeck can read your channels. See `docs/slack-desktop-auth.md`.
+Instead of requiring an OAuth app installation (which needs Slack admin approval), PRISM extracts credentials directly from the Slack desktop app on macOS. This means zero Slack setup — if you're logged into Slack desktop, PRISM can read your channels. See `docs/slack-desktop-auth.md`.
 
 ### PTY-Based Agents
 Agents run in real PTY terminals via node-pty rather than capturing plain stdout. This preserves ANSI formatting, enables interactive input, and lets the frontend render a full terminal experience with XTerm.js.

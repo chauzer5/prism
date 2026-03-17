@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from "react";
-import type { WSEvent, WSCommand } from "@cyberdeck/shared";
+import type { WSEvent, WSCommand } from "@prism/shared";
 
 const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
 

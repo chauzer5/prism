@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import * as pty from "node-pty";
-import type { Agent } from "@cyberdeck/shared";
+import type { Agent } from "@prism/shared";
 import { broadcast } from "../ws/events.js";
 import { extensionArgs } from "./extensions.js";
 
@@ -17,7 +17,7 @@ const SESSION_DIR = path.join(
   ".pi",
   "agent",
   "sessions",
-  "cyberdeck"
+  "prism"
 );
 
 interface OutputEntry {

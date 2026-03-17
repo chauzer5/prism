@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import * as readline from "node:readline";
-import type { PiSession } from "@cyberdeck/shared";
+import type { PiSession } from "@prism/shared";
 
 const SESSIONS_ROOT = path.join(os.homedir(), ".pi", "agent", "sessions");
 const FIRST_MESSAGE_MAX_LEN = 200;

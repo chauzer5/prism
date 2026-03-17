@@ -1,13 +1,13 @@
-# Cyberdeck — Personal AI Work Dashboard
+# PRISM — Personal AI Work Dashboard
 
 ## Quick Start
 ```bash
-cd cyberdeck && npm install && npm run dev
+npm install && npm run dev
 ```
 Server: http://localhost:9001 | Web: http://localhost:5173
 
 ## Project Structure
-- `packages/shared` — Shared types (`@cyberdeck/shared`)
+- `packages/shared` — Shared types (`@prism/shared`)
 - `apps/server` — Hono + tRPC + Drizzle backend
 - `apps/web` — Vite + React + shadcn/ui frontend
 
@@ -22,7 +22,7 @@ Server: http://localhost:9001 | Web: http://localhost:5173
 - Zustand for client-only state (layout, preferences)
 
 ## Database
-- SQLite via better-sqlite3 (file: `data/cyberdeck.db`)
+- SQLite via better-sqlite3 (file: `data/prism.db`)
 - Schema in `apps/server/src/db/schema.ts`
 - Auto-migrate on server startup (raw SQL in `apps/server/src/db/index.ts`)
 
@@ -150,7 +150,7 @@ Both are required for every API call. See `docs/slack-desktop-auth.md` for detai
 - `agents.workflows.*` — `list`, `agentDefs`, `save`
 
 **Key details:**
-- Session files stored at `~/.pi/agent/sessions/cyberdeck/`
+- Session files stored at `~/.pi/agent/sessions/prism/`
 - JSONL format with stdout/stderr/user input captured
 - Max 500 output lines per agent (server-side buffer)
 - Kill timeout: 5 seconds after stop signal
@@ -158,7 +158,54 @@ Both are required for every API call. See `docs/slack-desktop-auth.md` for detai
 
 ---
 
-### 4. Settings
+### 4. GitLab Integration
+
+**Files:**
+- `apps/server/src/integrations/gitlab/client.ts` — GitLab REST API client
+- `apps/server/src/integrations/gitlab/router.ts` — tRPC endpoints
+
+**Frontend:** `apps/web/src/routes/gitlab.tsx`
+
+**What it does:** Fetches open merge requests from a GitLab group, enriches with approval state, mention detection, and team membership. Provides MR detail views with pipeline jobs, discussions, and merge capability.
+
+**tRPC endpoints (`gitlab.*`):**
+| Endpoint | Type | Description |
+|----------|------|-------------|
+| `mergeRequests` | query | All enriched open MRs (polled every 60s) |
+| `mrDetail` | query | Full MR detail with pipeline, approvals, discussions |
+| `merge` | mutation | Merge an MR |
+| `addNote` | mutation | Add a comment to an MR |
+| `playJob` | mutation | Play a manual pipeline job |
+| `retryJob` | mutation | Retry a failed pipeline job |
+| `testConnection` | mutation | Validate PAT, return username |
+
+**Settings keys:** `gitlab.pat`, `gitlab.groupId`
+
+---
+
+### 5. Linear Integration
+
+**Files:**
+- `apps/server/src/integrations/linear/client.ts` — Linear GraphQL client
+- `apps/server/src/integrations/linear/router.ts` — tRPC endpoints
+
+**Frontend:** `apps/web/src/routes/linear.tsx`
+
+**What it does:** Fetches issues from Linear (viewer's assigned + team issues), deduplicates, and enriches with assignee flags. Provides issue detail views with comments.
+
+**tRPC endpoints (`linear.*`):**
+| Endpoint | Type | Description |
+|----------|------|-------------|
+| `issues` | query | All issues (polled every 60s) |
+| `issueDetail` | query | Full issue detail with comments |
+| `addComment` | mutation | Post a comment on an issue |
+| `testConnection` | mutation | Validate API key, return name/email |
+
+**Settings keys:** `linear.apiKey`, `linear.teamId`
+
+---
+
+### 6. Settings
 
 **Files:** `apps/server/src/settings/router.ts`
 **Frontend:** `apps/web/src/routes/settings.tsx`
@@ -172,11 +219,11 @@ Both are required for every API call. See `docs/slack-desktop-auth.md` for detai
 | `getMany` | query | Fetch multiple settings by key array |
 | `set` | mutation | Upsert a setting |
 
-**Known keys:** `slack.summarizationModel`, `slack.enabled`
+**Known keys:** `slack.summarizationModel`, `slack.enabled`, `gitlab.pat`, `gitlab.groupId`, `linear.apiKey`, `linear.teamId`
 
 ---
 
-### 5. WebSocket System
+### 7. WebSocket System
 
 **Files:** `apps/server/src/ws/index.ts`, `apps/server/src/ws/events.ts`, `packages/shared/src/events.ts`
 **Frontend:** `apps/web/src/hooks/useWebSocket.ts`
@@ -212,7 +259,9 @@ Both are required for every API call. See `docs/slack-desktop-auth.md` for detai
 | `/teams` | `routes/teams.tsx` | Team management with member cards, model/thinking overrides |
 | `/workflows` | `routes/workflows.tsx` | Workflow builder with step editor |
 | `/slack` | `routes/slack.tsx` | Channel config + conversation browser by day |
-| `/settings` | `routes/settings.tsx` | Slack enable/disable, model selector |
+| `/gitlab` | `routes/gitlab.tsx` | GitLab MRs with tabs, detail view, pipeline, merge |
+| `/linear` | `routes/linear.tsx` | Linear issues with tabs, detail view, comments |
+| `/settings` | `routes/settings.tsx` | API keys, Slack enable/disable, model selector |
 
 ### Dashboard Panels
 | Panel | Directory | Description |
@@ -238,7 +287,7 @@ Both are required for every API call. See `docs/slack-desktop-auth.md` for detai
 ## Adding a Backend Integration
 
 1. Create `apps/server/src/integrations/<name>/` with `index.ts`, `router.ts`, `client.ts`
-2. Implement the `Integration` interface from `@cyberdeck/shared`
+2. Implement the `Integration` interface from `@prism/shared`
 3. Merge sub-router into `apps/server/src/router.ts`
 
 ## Adding a Dashboard Panel

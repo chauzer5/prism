@@ -1,5 +1,5 @@
 {
-  "name": "@cyberdeck/server",
+  "name": "@prism/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@cyberdeck/shared": "*",
+    "@prism/shared": "*",
     "@hono/node-server": "^1.13.8",
     "@hono/node-ws": "^1.1.0",
     "@slack/web-api": "^7.8.0",

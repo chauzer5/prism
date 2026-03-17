@@ -1,5 +1,5 @@
 {
-  "name": "cyberdeck",
+  "name": "prism",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -7,11 +7,11 @@
   ],
   "scripts": {
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
-    "dev": "concurrently -n server,web -c blue,green \"npm run dev -w @cyberdeck/server\" \"npm run dev -w @cyberdeck/web\"",
-    "build": "npm run build -w @cyberdeck/shared && npm run build -w @cyberdeck/server && npm run build -w @cyberdeck/web",
+    "dev": "concurrently -n server,web -c blue,green \"npm run dev -w @prism/server\" \"npm run dev -w @prism/web\"",
+    "build": "npm run build -w @prism/shared && npm run build -w @prism/server && npm run build -w @prism/web",
     "tauri": "tauri",
-    "tauri:dev": "concurrently -n server,tauri -c blue,magenta \"npm run dev -w @cyberdeck/server\" \"tauri dev\"",
-    "tauri:build": "npm run build -w @cyberdeck/shared && npm run build -w @cyberdeck/server && tauri build"
+    "tauri:dev": "concurrently -n server,tauri -c blue,magenta \"npm run dev -w @prism/server\" \"tauri dev\"",
+    "tauri:build": "npm run build -w @prism/shared && npm run build -w @prism/server && tauri build"
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.10.1",

@@ -1,4 +1,4 @@
-import type { WSEvent, WSCommand } from "@cyberdeck/shared";
+import type { WSEvent, WSCommand } from "@prism/shared";
 import type { WSContext } from "hono/ws";
 import { sendStdin, stopAgent, resizeAgent } from "../agents/manager.js";
 

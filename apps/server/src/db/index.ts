@@ -4,7 +4,7 @@ import { mkdirSync } from "fs";
 import { dirname } from "path";
 import * as schema from "./schema.js";
 
-const dbPath = process.env.DATABASE_URL || "./data/cyberdeck.db";
+const dbPath = process.env.DATABASE_URL || "./data/prism.db";
 mkdirSync(dirname(dbPath), { recursive: true });
 
 const sqlite = new Database(dbPath);

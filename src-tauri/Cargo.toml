@@ -1,12 +1,12 @@
 [package]
-name = "cyberdeck"
+name = "prism"
 version = "0.1.0"
 description = "Personal AI Work Dashboard"
 authors = ["Riley Reed"]
 edition = "2021"
 
 [lib]
-name = "cyberdeck_lib"
+name = "prism_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

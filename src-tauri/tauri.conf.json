@@ -1,18 +1,18 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/raw/refs/heads/master/nicedoc/tauri-apps/tauri/refs/heads/dev/crates/tauri-cli/schema.json",
-  "productName": "Cyberdeck",
+  "productName": "PRISM",
   "version": "0.1.0",
-  "identifier": "com.cyberdeck.app",
+  "identifier": "com.prism.app",
   "build": {
-    "beforeDevCommand": "npm run dev -w @cyberdeck/web",
+    "beforeDevCommand": "npm run dev -w @prism/web",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build -w @cyberdeck/web",
+    "beforeBuildCommand": "npm run build -w @prism/web",
     "frontendDist": "../apps/web/dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Cyberdeck",
+        "title": "PRISM",
         "width": 1400,
         "height": 900,
         "minWidth": 800,

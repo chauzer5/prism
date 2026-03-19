@@ -16,8 +16,8 @@ export function getUnreadDmDetails() {
   return cachedDmDetails;
 }
 
-export function startDmPoller() {
-  const auth = getAuthStatus();
+export async function startDmPoller() {
+  const auth = await getAuthStatus();
   if (auth.mode === "none") {
     console.log("[slack:dm] no credentials available, poller disabled");
     return;

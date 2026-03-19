@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { GitMerge, MessageSquare } from "lucide-react";
 import { trpc } from "@/trpc";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useSlackEnabled } from "@/hooks/useSlackEnabled";
@@ -10,31 +12,26 @@ const COLOR_MAP = {
   pink: {
     value: "text-neon-pink",
     glow: "0 0 30px rgba(255, 45, 123, 0.4)",
-    barBg: "bg-neon-pink shadow-[0_0_8px_rgba(255,45,123,0.6)]",
     edge: "from-neon-pink",
   },
   cyan: {
     value: "text-neon-cyan",
     glow: "0 0 30px rgba(0, 240, 255, 0.4)",
-    barBg: "bg-neon-cyan shadow-[0_0_8px_rgba(0,240,255,0.6)]",
     edge: "from-neon-cyan",
   },
   yellow: {
     value: "text-neon-yellow",
     glow: "0 0 30px rgba(250, 204, 21, 0.4)",
-    barBg: "bg-neon-yellow shadow-[0_0_8px_rgba(250,204,21,0.6)]",
     edge: "from-neon-yellow",
   },
   green: {
     value: "text-neon-green",
     glow: "0 0 30px rgba(0, 255, 136, 0.4)",
-    barBg: "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.6)]",
     edge: "from-neon-green",
   },
   purple: {
     value: "text-neon-purple",
     glow: "0 0 30px rgba(192, 38, 211, 0.4)",
-    barBg: "bg-neon-purple shadow-[0_0_8px_rgba(192,38,211,0.6)]",
     edge: "from-neon-purple",
   },
 } as const;
@@ -71,7 +68,7 @@ export function QuickStatsPanel() {
     : null;
 
   const visibleStats = useMemo(() => {
-    const items: { key: string; label: string; color: keyof typeof COLOR_MAP; href: string; value: string; delta?: string; deltaUp?: boolean; barPercent: number }[] = [];
+    const items: { key: string; label: string; color: keyof typeof COLOR_MAP; href: string; value: string; delta?: string; deltaUp?: boolean; icon: ReactNode }[] = [];
 
     if (scEnabled) {
       items.push({
@@ -82,7 +79,18 @@ export function QuickStatsPanel() {
         value: String(myPRCount),
         delta: needsReview > 0 ? `${needsReview} need review` : undefined,
         deltaUp: needsReview > 0,
-        barPercent: Math.min(myPRCount * 15, 100),
+        icon: <GitMerge className="h-4 w-4" />,
+      });
+    }
+
+    if (scEnabled) {
+      items.push({
+        key: "review",
+        label: "Needs Review",
+        color: "yellow",
+        href: "/source-control",
+        value: String(needsReview),
+        icon: <GitMerge className="h-4 w-4" />,
       });
     }
 
@@ -95,7 +103,7 @@ export function QuickStatsPanel() {
         value: unreadCount != null ? String(unreadCount) : "--",
         delta: unreadCount != null && unreadCount > 0 ? `${unreadCount} new` : undefined,
         deltaUp: unreadCount != null && unreadCount > 0,
-        barPercent: unreadCount != null ? Math.min(unreadCount * 15, 100) : 0,
+        icon: <MessageSquare className="h-4 w-4" />,
       });
     }
 
@@ -124,6 +132,11 @@ export function QuickStatsPanel() {
               )}
             />
 
+            {/* Icon */}
+            <div className="absolute top-3.5 right-3.5 text-text-muted opacity-40">
+              {s.icon}
+            </div>
+
             {/* Label */}
             <div className="mb-2 font-display text-[9px] font-semibold tracking-[3px] uppercase text-text-muted">
               {s.label}
@@ -147,17 +160,6 @@ export function QuickStatsPanel() {
                   {s.delta}
                 </span>
               )}
-            </div>
-
-            {/* Progress bar */}
-            <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.07)]">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-1000",
-                  colors.barBg
-                )}
-                style={{ width: `${s.barPercent}%` }}
-              />
             </div>
           </Link>
         );

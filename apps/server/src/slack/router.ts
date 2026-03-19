@@ -3,7 +3,7 @@ import { eq, desc, asc, sql } from "drizzle-orm";
 import { router, publicProcedure } from "../trpc.js";
 import { db } from "../db/index.js";
 import { slackChannels, slackConversations } from "../db/schema.js";
-import { resolveChannelId, getAuthStatus, resetSlackClients } from "./client.js";
+import { resolveChannelId, getAuthStatus, resetSlackClients, fetchAllMentions } from "./client.js";
 import { pollAllChannels, pollSingleChannel } from "./poller.js";
 import { getUnreadDmStats, getUnreadDmDetails } from "./dm-poller.js";
 
@@ -103,15 +103,9 @@ export const slackRouter = router({
   }),
 
   threads: router({
-    mentions: publicProcedure
-      .input(z.object({ limit: z.number().optional() }).optional())
-      .query(async ({ input }) => {
-        const limit = input?.limit ?? 50;
-        return db.select().from(slackConversations)
-          .where(eq(slackConversations.mentionsMe, true))
-          .orderBy(desc(slackConversations.lastMessageAt))
-          .limit(limit).all();
-      }),
+    mentions: publicProcedure.query(async () => {
+      return fetchAllMentions();
+    }),
 
     byChannel: publicProcedure
       .input(z.object({ channelId: z.string(), limit: z.number().optional() }))

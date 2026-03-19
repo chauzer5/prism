@@ -19,7 +19,7 @@ export interface SlackMessage {
 
 export interface AuthStatus {
   mode: "desktop" | "bot-token" | "none";
-  workspaces: Array<{ teamId: string; teamName: string; userId: string }>;
+  workspaces: Array<{ teamId: string; teamName: string; userId: string; domain?: string }>;
 }
 
 // ── Client Cache ───────────────────────────────────────────────────────────
@@ -202,20 +202,37 @@ export function getSlackClient(teamId?: string | null): WebClient {
   );
 }
 
+// Cache workspace domains to avoid repeated API calls
+const domainCache = new Map<string, string>();
+
 /**
  * Returns the current authentication mode and available workspaces.
  */
-export function getAuthStatus(): AuthStatus {
+export async function getAuthStatus(): Promise<AuthStatus> {
   const desktop = getDesktopCredentials();
   if (desktop.workspaces.length > 0 && desktop.cookie) {
-    return {
-      mode: "desktop",
-      workspaces: desktop.workspaces.map((w) => ({
-        teamId: w.teamId,
-        teamName: w.teamName,
-        userId: w.userId,
-      })),
-    };
+    const workspaces = await Promise.all(
+      desktop.workspaces.map(async (w) => {
+        let domain = domainCache.get(w.teamId);
+        if (!domain) {
+          try {
+            const slack = getSlackClient(w.teamId);
+            const info = await slack.team.info({ team: w.teamId });
+            domain = (info.team as { domain?: string })?.domain;
+            if (domain) domainCache.set(w.teamId, domain);
+          } catch {
+            // ignore — domain will be undefined
+          }
+        }
+        return {
+          teamId: w.teamId,
+          teamName: w.teamName,
+          userId: w.userId,
+          domain,
+        };
+      }),
+    );
+    return { mode: "desktop", workspaces };
   }
 
   if (process.env.SLACK_BOT_TOKEN) {
@@ -231,6 +248,18 @@ export function getAuthStatus(): AuthStatus {
 export function resetSlackClients(): void {
   clientCache.clear();
   clearDesktopCredentials();
+}
+
+/**
+ * Returns the set of authenticated user IDs across all workspaces.
+ */
+export function getSelfUserIds(): Set<string> {
+  const ids = new Set<string>();
+  const desktop = getDesktopCredentials();
+  for (const ws of desktop.workspaces) {
+    ids.add(ws.userId);
+  }
+  return ids;
 }
 
 // ── Auth-Failure Retry Wrapper ─────────────────────────────────────────────
@@ -502,6 +531,135 @@ export async function fetchUnreadDmDetails(): Promise<UnreadDm[]> {
   // Sort by latest message timestamp descending
   results.sort((a, b) => b.latestTs.localeCompare(a.latestTs));
   return results;
+}
+
+// ── Mentions (Activity API) ─────────────────────────────────────────────
+
+export interface SlackMention {
+  channelId: string;
+  channelName: string;
+  user: string;
+  text: string;
+  ts: string;
+  threadTs?: string;
+  permalink: string;
+  teamId: string | null;
+}
+
+export async function fetchMentions(teamId?: string | null): Promise<SlackMention[]> {
+  const attempt = async () => {
+    const slack = getSlackClient(teamId);
+    // The activity.list API is used by Slack desktop to populate the Activity > Mentions tab
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await (slack as any).apiCall("activity.list", {
+      source: "mentions",
+      limit: 50,
+    });
+
+    const items = (result.items ?? []) as {
+      message?: {
+        user?: string;
+        text?: string;
+        ts?: string;
+        thread_ts?: string;
+        channel?: string;
+        permalink?: string;
+      };
+      channel?: string;
+      date_create?: number;
+    }[];
+
+    // Resolve user and channel names
+    const userIds = new Set<string>();
+    const channelIds = new Set<string>();
+    for (const item of items) {
+      if (item.message?.user) userIds.add(item.message.user);
+      const chId = item.message?.channel ?? item.channel;
+      if (chId) channelIds.add(chId);
+      // Also extract mentions from text
+      if (item.message?.text) {
+        for (const match of item.message.text.matchAll(/<@(U[A-Z0-9]+)>/g)) {
+          userIds.add(match[1]);
+        }
+      }
+    }
+
+    const nameMap = await resolveUserNames([...userIds], teamId);
+
+    // Build channel name map from directory
+    const channelNameMap = new Map<string, string>();
+    for (const chId of channelIds) {
+      const row = await db.select().from(slackChannelDirectory)
+        .where(eq(slackChannelDirectory.slackChannelId, chId)).get();
+      if (row) channelNameMap.set(chId, `#${row.name}`);
+    }
+    // Fall back to API for any missing channels
+    if ([...channelIds].some((id) => !channelNameMap.has(id))) {
+      const channels = await getChannelList(teamId);
+      for (const ch of channels) {
+        if (!channelNameMap.has(ch.id)) channelNameMap.set(ch.id, `#${ch.name}`);
+      }
+    }
+
+    const mentions: SlackMention[] = [];
+    for (const item of items) {
+      const msg = item.message;
+      if (!msg?.text || !msg.ts) continue;
+      const chId = msg.channel ?? item.channel ?? "";
+
+      let text = msg.text;
+      text = text.replace(/<@(U[A-Z0-9]+)>/g, (_, id) => `@${nameMap.get(id) ?? id}`);
+
+      mentions.push({
+        channelId: chId,
+        channelName: channelNameMap.get(chId) ?? chId,
+        user: nameMap.get(msg.user ?? "") ?? msg.user ?? "unknown",
+        text,
+        ts: msg.ts,
+        threadTs: msg.thread_ts,
+        permalink: msg.permalink ?? "",
+        teamId: teamId ?? null,
+      });
+    }
+
+    return mentions;
+  };
+
+  try {
+    return await attempt();
+  } catch (err) {
+    if (isRetryableAuthError(err)) {
+      resetSlackClients();
+      return await attempt();
+    }
+    throw err;
+  }
+}
+
+export async function fetchAllMentions(): Promise<SlackMention[]> {
+  const desktop = getDesktopCredentials();
+  const allMentions: SlackMention[] = [];
+
+  if (desktop.workspaces.length > 0) {
+    for (const ws of desktop.workspaces) {
+      try {
+        const mentions = await fetchMentions(ws.teamId);
+        allMentions.push(...mentions);
+      } catch (err) {
+        console.error(`[slack:mentions] error for ${ws.teamName}:`, err);
+      }
+    }
+  } else if (process.env.SLACK_BOT_TOKEN) {
+    try {
+      allMentions.push(...await fetchMentions());
+    } catch (err) {
+      console.error("[slack:mentions] error:", err);
+    }
+  }
+
+  // Sort by timestamp descending
+  allMentions.sort((a, b) => parseFloat(b.ts) - parseFloat(a.ts));
+  return allMentions;
 }
 
 export async function resolveChannelId(

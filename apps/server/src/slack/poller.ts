@@ -1,14 +1,14 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { slackChannels, slackConversations } from "../db/schema.js";
-import { fetchChannelMessages, getAuthStatus } from "./client.js";
+import { slackChannels, slackConversations, slackUserDirectory } from "../db/schema.js";
+import { fetchChannelMessages, getAuthStatus, getSelfUserIds } from "./client.js";
 import type { SlackMessage } from "./client.js";
 import { broadcast } from "../ws/events.js";
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
-export function startSlackPoller() {
-  const auth = getAuthStatus();
+export async function startSlackPoller() {
+  const auth = await getAuthStatus();
   if (auth.mode === "none") {
     console.log("[slack] no credentials available, poller disabled");
     return;
@@ -94,6 +94,15 @@ async function pollChannel(channel: typeof slackChannels.$inferSelect) {
 
   const existingByTs = new Map(existingRows.map((r) => [r.conversationTs, r]));
 
+  // Build list of names the self user might appear as in resolved messages
+  const selfIds = getSelfUserIds();
+  const selfMentionNames: string[] = [];
+  for (const id of selfIds) {
+    const row = await db.select().from(slackUserDirectory)
+      .where(eq(slackUserDirectory.slackUserId, id)).get();
+    if (row) selfMentionNames.push(row.name);
+  }
+
   const now = new Date().toISOString();
   let upsertCount = 0;
 
@@ -104,8 +113,14 @@ async function pollChannel(channel: typeof slackChannels.$inferSelect) {
     if (existing && conv.messages.length <= existing.messageCount) continue;
 
     const parentMsg = conv.messages[0];
+
+    // Detect mentions: check for "you" (from resolveUserNames) and also
+    // check for the resolved display name (in case resolveUserNames didn't map self to "you")
     const mentionsMe = conv.messages.some(
-      (m) => m.user === "you" || m.text.includes("@you"),
+      (m) =>
+        m.user === "you" ||
+        m.text.includes("@you") ||
+        selfMentionNames.some((name) => m.text.includes(`@${name}`)),
     );
 
     const firstTs = Math.min(...conv.messages.map((m) => parseFloat(m.ts)));

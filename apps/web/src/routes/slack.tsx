@@ -1,7 +1,7 @@
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
 import { useState, useCallback, useEffect } from "react";
-import { MessageSquare, Plus, Trash2, RefreshCw, Shield, Loader2, ExternalLink, User, AtSign } from "lucide-react";
+import { MessageSquare, Plus, Trash2, RefreshCw, Shield, Loader2, ExternalLink, User } from "lucide-react";
 import { emojify } from "node-emoji";
 import { trpc } from "@/trpc";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -18,6 +18,26 @@ function timeAgo(dateStr: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+function openInSlack(url: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function slackMessageUrl(slackChannelId: string, messageTs: string, domain?: string | null): string {
+  // Use the native archives URL which Slack Desktop handles correctly
+  const host = domain ? `${domain}.slack.com` : "slack.com";
+  if (messageTs) {
+    const tsForUrl = "p" + messageTs.replace(".", "");
+    return `https://${host}/archives/${slackChannelId}/${tsForUrl}`;
+  }
+  return `https://${host}/archives/${slackChannelId}`;
 }
 
 interface ThreadMessage {
@@ -60,6 +80,8 @@ function SlackText({ text, className }: { text: string; className?: string }) {
 
 function ThreadCard({
   thread,
+  slackChannelId,
+  domain,
   showChannel,
 }: {
   thread: {
@@ -74,13 +96,13 @@ function ThreadCard({
     lastMessageAt: string;
     channelId: string;
   };
+  slackChannelId?: string;
+  domain?: string | null;
   showChannel?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const messages: ThreadMessage[] = expanded ? JSON.parse(thread.messages) : [];
 
-  // Build Slack deep link — we don't have slackChannelId/teamId here,
-  // so link to the channel page in PRISM instead
   return (
     <div
       className={cn(
@@ -116,6 +138,15 @@ function ThreadCard({
             )}
           </div>
         </div>
+        {slackChannelId && (
+          <button
+            onClick={() => openInSlack(slackMessageUrl(slackChannelId, thread.conversationTs, domain))}
+            className="mt-0.5 shrink-0 rounded p-1 text-text-muted opacity-0 transition-all hover:text-neon-cyan group-hover:opacity-100"
+            title="Open in Slack"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Expanded thread replies */}
@@ -171,10 +202,6 @@ function SlackPage() {
   const channels = trpc.slack.channels.list.useQuery();
   const unreadDms = trpc.slack.unreadDmDetails.useQuery(undefined, { refetchInterval: 30_000 });
 
-  const mentions = trpc.slack.threads.mentions.useQuery(undefined, {
-    refetchInterval: 30_000,
-  });
-
   const channelThreads = trpc.slack.threads.byChannel.useQuery(
     { channelId: selectedChannelId! },
     { enabled: !!selectedChannelId, refetchInterval: 30_000 }
@@ -213,6 +240,7 @@ function SlackPage() {
   const removeChannel = trpc.slack.channels.remove.useMutation({
     onSuccess: () => {
       utils.slack.channels.list.invalidate();
+      utils.slack.threads.latest.invalidate();
       if (selectedChannelId) {
         navigate({ to: "/slack", search: {} });
       }
@@ -233,6 +261,19 @@ function SlackPage() {
     },
   });
 
+  const selectedChannel = channels.data?.find((c) => c.id === selectedChannelId);
+
+  // Build a lookup from internal channel ID to Slack channel info for links
+  const workspaceDomains = new Map(
+    (authStatus.data?.workspaces ?? []).map((w) => [w.teamId, w.domain]),
+  );
+  const channelLookup = new Map(
+    (channels.data ?? []).map((c) => [c.id, {
+      slackChannelId: c.slackChannelId,
+      domain: c.teamId ? workspaceDomains.get(c.teamId) : undefined,
+    }]),
+  );
+
   // Auto-select first channel if none selected
   useEffect(() => {
     if (!selectedChannelId && channels.data && channels.data.length > 0) {
@@ -248,7 +289,7 @@ function SlackPage() {
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div>
           <h1 className="font-display text-lg font-bold tracking-[2px] uppercase text-cream">Slack</h1>
-          <p className="mt-0.5 text-xs text-text-muted">DMs, mentions, and channel threads</p>
+          <p className="mt-0.5 text-xs text-text-muted">DMs and channel threads</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -292,14 +333,24 @@ function SlackPage() {
               <p className="px-3 py-2 text-[11px] text-text-muted">No unread messages</p>
             )}
             {unreadDms.data?.map((dm) => {
-              const deepLink = dm.teamId
-                ? `slack://user?team=${dm.teamId}&id=${dm.userId}`
-                : `slack://user?id=${dm.userId}`;
+              const domain = dm.teamId ? workspaceDomains.get(dm.teamId) : undefined;
+              const dmUrl = domain
+                ? `https://${domain}.slack.com/archives/${dm.channelId}`
+                : `https://slack.com/app_redirect?channel=${dm.channelId}`;
               return (
-                <a
+                <button
                   key={dm.channelId}
-                  href={deepLink}
-                  className="flex items-start gap-2.5 rounded-lg px-3 py-2 transition-all hover:bg-[rgba(255,45,123,0.04)]"
+                  onClick={() => {
+                    openInSlack(dmUrl);
+                    // Optimistically remove from the list
+                    utils.slack.unreadDmDetails.setData(undefined, (old) =>
+                      (old ?? []).filter((d) => d.channelId !== dm.channelId),
+                    );
+                    utils.slack.unreadDms.setData(undefined, (old) =>
+                      old ? { ...old, unreadCount: Math.max(0, old.unreadCount - 1) } : old,
+                    );
+                  }}
+                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[rgba(255,45,123,0.04)]"
                 >
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan/20 to-neon-pink/20 mt-0.5">
                     <User className="h-3 w-3 text-neon-cyan" />
@@ -317,47 +368,9 @@ function SlackPage() {
                       </p>
                     )}
                   </div>
-                </a>
+                </button>
               );
             })}
-          </div>
-
-          {/* Mentions section */}
-          <div className="border-b border-border px-4 py-3">
-            <div className="flex items-center gap-2">
-              <div className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                Mentions
-              </div>
-              {(mentions.data?.length ?? 0) > 0 && (
-                <span className="rounded-full bg-[rgba(0,240,255,0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-neon-cyan">
-                  {mentions.data!.length}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="space-y-0.5 border-b border-border p-2">
-            {(mentions.data?.length ?? 0) === 0 && (
-              <p className="px-3 py-2 text-[11px] text-text-muted">No mentions</p>
-            )}
-            {mentions.data?.map((thread) => (
-              <div
-                key={thread.id}
-                className="flex items-start gap-2.5 rounded-lg px-3 py-2 transition-all hover:bg-[rgba(0,240,255,0.04)]"
-              >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan/20 to-neon-pink/20 mt-0.5">
-                  <AtSign className="h-3 w-3 text-neon-cyan" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold text-cream truncate">{thread.parentUser}</span>
-                    <span className="text-[10px] text-text-muted">{thread.channelName}</span>
-                  </div>
-                  <p className="mt-0.5 truncate text-[11px] text-text-muted">
-                    {thread.parentText}
-                  </p>
-                </div>
-              </div>
-            ))}
           </div>
 
           {/* Channels section */}
@@ -396,6 +409,16 @@ function SlackPage() {
                   </div>
                   {!isTemp && (
                     <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openInSlack(slackMessageUrl(channel.slackChannelId, "", channel.teamId ? workspaceDomains.get(channel.teamId) : undefined));
+                        }}
+                        className="rounded p-1 text-text-muted hover:text-neon-cyan"
+                        title="Open in Slack"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -531,7 +554,11 @@ function SlackPage() {
             <div className="space-y-2">
               {channelThreads.data?.map((thread, i) => (
                 <div key={thread.id} className={cn("animate-glass-in", `stagger-${Math.min(i + 1, 5)}`)}>
-                  <ThreadCard thread={thread} />
+                  <ThreadCard
+                    thread={thread}
+                    slackChannelId={selectedChannel?.slackChannelId}
+                    domain={selectedChannel ? workspaceDomains.get(selectedChannel.teamId ?? "") : undefined}
+                  />
                 </div>
               ))}
             </div>

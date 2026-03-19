@@ -7,8 +7,8 @@ import { getAuthStatus } from "./client.js";
  * On startup, backfill team IDs from desktop credentials into slack_channels
  * and fix any todo URLs that are missing the team parameter.
  */
-export function backfillTeamIds() {
-  const auth = getAuthStatus();
+export async function backfillTeamIds() {
+  const auth = await getAuthStatus();
   if (auth.mode === "none" || auth.workspaces.length === 0) {
     console.log("[backfill] no Slack credentials available, skipping");
     return;

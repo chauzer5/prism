@@ -59,6 +59,13 @@ function getStatusColor(statusType: string): string {
   }
 }
 
+const STATUS_ORDER: Record<string, number> = {
+  started: 0,
+  unstarted: 1,
+  backlog: 2,
+  completed: 3,
+};
+
 const MAX_DEPLOYED = 3;
 
 function capDeployed<T extends { status: string }>(issues: T[]): T[] {
@@ -130,6 +137,64 @@ function IssueCard({ issue, onOpen }: { issue: LinearIssue; onOpen: (id: string)
         </div>
       )}
     </button>
+  );
+}
+
+// ── Grouped Issue List ──
+
+function groupByStatus(issues: LinearIssue[]): { status: string; statusType: string; issues: LinearIssue[] }[] {
+  const groups = new Map<string, { statusType: string; issues: LinearIssue[] }>();
+  for (const issue of issues) {
+    let group = groups.get(issue.status);
+    if (!group) {
+      group = { statusType: issue.status_type, issues: [] };
+      groups.set(issue.status, group);
+    }
+    group.issues.push(issue);
+  }
+  return Array.from(groups.entries())
+    .map(([status, g]) => ({ status, statusType: g.statusType, issues: g.issues }))
+    .sort((a, b) => (STATUS_ORDER[a.statusType] ?? 99) - (STATUS_ORDER[b.statusType] ?? 99));
+}
+
+function GroupedIssueList({ issues, onOpen }: { issues: LinearIssue[]; onOpen: (id: string) => void }) {
+  if (issues.length === 0) {
+    return (
+      <div className="flex items-center justify-center pt-16">
+        <div className="text-center">
+          <LayoutList className="mx-auto h-10 w-10 text-text-muted opacity-30" />
+          <p className="mt-3 text-sm text-text-muted">No tickets</p>
+        </div>
+      </div>
+    );
+  }
+
+  const groups = groupByStatus(issues);
+  let animIndex = 0;
+
+  return (
+    <div className="space-y-5">
+      {groups.map((group) => (
+        <div key={group.status}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", getStatusColor(group.statusType))}>
+              {group.status}
+            </span>
+            <span className="text-[10px] text-text-muted">{group.issues.length}</span>
+          </div>
+          <div className="space-y-2">
+            {group.issues.map((issue) => {
+              const i = animIndex++;
+              return (
+                <div key={issue.id} className={cn("animate-glass-in", `stagger-${Math.min(i + 1, 5)}`)}>
+                  <IssueCard issue={issue} onOpen={onOpen} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -519,21 +584,7 @@ function LinearPage() {
                 Edit Team
               </button>
             </div>
-            {currentIssues.length === 0 && (
-              <div className="flex items-center justify-center pt-12">
-                <div className="text-center">
-                  <LayoutList className="mx-auto h-10 w-10 text-text-muted opacity-30" />
-                  <p className="mt-3 text-sm text-text-muted">No tickets</p>
-                </div>
-              </div>
-            )}
-            <div className="space-y-2">
-              {currentIssues.map((issue, i) => (
-                <div key={issue.id} className={cn("animate-glass-in", `stagger-${Math.min(i + 1, 5)}`)}>
-                  <IssueCard issue={issue} onOpen={setSelectedIssue} />
-                </div>
-              ))}
-            </div>
+            <GroupedIssueList issues={teamIssues} onOpen={setSelectedIssue} />
           </>
         )}
         {/* Ready tab: show board picker if not configured */}
@@ -588,25 +639,9 @@ function LinearPage() {
             </div>
           </>
         )}
-        {/* Mine tab: normal rendering */}
+        {/* Mine tab */}
         {!isLoading && !isError && tab === "mine" && (
-          <>
-            {currentIssues.length === 0 && (
-              <div className="flex items-center justify-center pt-16">
-                <div className="text-center">
-                  <LayoutList className="mx-auto h-10 w-10 text-text-muted opacity-30" />
-                  <p className="mt-3 text-sm text-text-muted">No tickets</p>
-                </div>
-              </div>
-            )}
-            <div className="space-y-2">
-              {currentIssues.map((issue, i) => (
-                <div key={issue.id} className={cn("animate-glass-in", `stagger-${Math.min(i + 1, 5)}`)}>
-                  <IssueCard issue={issue} onOpen={setSelectedIssue} />
-                </div>
-              ))}
-            </div>
-          </>
+          <GroupedIssueList issues={myIssues} onOpen={setSelectedIssue} />
         )}
       </div>
 

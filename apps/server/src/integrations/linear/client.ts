@@ -96,9 +96,21 @@ interface IssueDetailRaw extends IssueRaw {
   };
 }
 
+// ── Cache ──
+
+let cachedIssues: LinearIssue[] = [];
+let issuesCacheTime = 0;
+let cachedReadyIssues: LinearIssue[] = [];
+let readyIssuesCacheTime = 0;
+const LINEAR_CACHE_TTL = 60_000; // 60s
+
 // ── Public API ──
 
 export async function getIssues(): Promise<LinearIssue[]> {
+  if (Date.now() - issuesCacheTime < LINEAR_CACHE_TTL && cachedIssues.length > 0) {
+    return cachedIssues;
+  }
+
   const apiKey = await getApiKey();
   const teamMemberNames = new Set(await getTeamMembers());
 
@@ -175,7 +187,7 @@ export async function getIssues(): Promise<LinearIssue[]> {
     }
   }
 
-  return allRaw.map((raw) => {
+  const result = allRaw.map((raw) => {
     const assigneeName = raw.assignee?.name ?? null;
     const assigneeIsMe = myIssueIds.has(raw.id);
     const assigneeIsTeam =
@@ -199,6 +211,11 @@ export async function getIssues(): Promise<LinearIssue[]> {
       created_at: raw.createdAt,
     };
   });
+
+  cachedIssues = result;
+  issuesCacheTime = Date.now();
+
+  return result;
 }
 
 export async function getIssueDetail(identifier: string): Promise<LinearIssueDetail> {
@@ -305,6 +322,10 @@ export async function listTeams(): Promise<LinearTeam[]> {
 }
 
 export async function getReadyIssues(): Promise<LinearIssue[]> {
+  if (Date.now() - readyIssuesCacheTime < LINEAR_CACHE_TTL && cachedReadyIssues.length > 0) {
+    return cachedReadyIssues;
+  }
+
   const apiKey = await getApiKey();
 
   const teamIdRow = await db
@@ -343,7 +364,7 @@ export async function getReadyIssues(): Promise<LinearIssue[]> {
     }`,
   );
 
-  return data.team.issues.nodes.map((raw) => ({
+  const result = data.team.issues.nodes.map((raw) => ({
     id: raw.id,
     identifier: raw.identifier,
     title: raw.title,
@@ -360,6 +381,11 @@ export async function getReadyIssues(): Promise<LinearIssue[]> {
     updated_at: raw.updatedAt,
     created_at: raw.createdAt,
   }));
+
+  cachedReadyIssues = result;
+  readyIssuesCacheTime = Date.now();
+
+  return result;
 }
 
 export async function testConnection(): Promise<string> {

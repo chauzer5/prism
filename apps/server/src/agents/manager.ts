@@ -10,23 +10,8 @@ let currentId: string | null = null;
 let pendingSpawn: { command: string; args: string[]; cwd: string } | null = null;
 
 // Agent activity state: "idle" (waiting for input), "busy" (working), "not_running"
+// TODO: revisit activity detection — session file watching was unreliable
 let activityState: "idle" | "busy" | "not_running" = "not_running";
-let lastOutputTime = 0;
-
-// Detect if Claude Code is waiting for input by watching output patterns
-const IDLE_INDICATORS = ["❯", "❯ "];
-const BUSY_INDICATORS = ["✳", "⏺", "Sprouting", "Cooking", "Thinking"];
-
-function updateActivity(data: string) {
-  lastOutputTime = Date.now();
-  // Check the latest chunk for state indicators
-  // Claude Code prints ❯ when its prompt is ready for input
-  if (IDLE_INDICATORS.some((p) => data.includes(p))) {
-    activityState = "idle";
-  } else if (BUSY_INDICATORS.some((p) => data.includes(p))) {
-    activityState = "busy";
-  }
-}
 
 export function createPendingAgent(
   command: string,
@@ -68,10 +53,9 @@ export function startAgent(cols: number, rows: number): boolean {
   currentPty = ptyProcess;
   const id = currentId;
 
-  activityState = "busy";
+  activityState = "idle";
 
   ptyProcess.onData((data: string) => {
-    updateActivity(data);
     broadcast({ type: "agent:stdout", agentId: id, data });
   });
 
@@ -164,5 +148,6 @@ export function isRunning(): boolean {
 }
 
 export function getActivity(): "idle" | "busy" | "not_running" {
+  if (!currentPty) return "not_running";
   return activityState;
 }

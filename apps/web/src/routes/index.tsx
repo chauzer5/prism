@@ -5,17 +5,30 @@ import { PanelGrid } from "@/components/layout/PanelGrid";
 import { QuickStatsPanel } from "@/components/panels/placeholder";
 import { AgentMonitorPanel } from "@/components/panels/agent-monitor";
 import { SlackSummaryPanel } from "@/components/panels/slack-summary";
+import { MyMRsPanel } from "@/components/panels/my-mrs";
+import { MyTicketsPanel } from "@/components/panels/my-tickets";
 import { TodoPanel } from "@/components/panels/todos";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useSlackEnabled } from "@/hooks/useSlackEnabled";
+import { useSourceControlEnabled } from "@/hooks/useSourceControlEnabled";
+import { useLinearEnabled } from "@/hooks/useLinearEnabled";
+import { useTodosEnabled } from "@/hooks/useTodosEnabled";
+import { useAgentsEnabled } from "@/hooks/useAgentsEnabled";
 import { trpc } from "@/trpc";
 import { cn } from "@/lib/utils";
-import { RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { RefreshCw, CheckCircle, Loader2 } from "lucide-react";
 
 function Dashboard() {
   useWebSocket();
   const { enabled: slackEnabled } = useSlackEnabled();
-  const ping = trpc.health.ping.useQuery(undefined, { refetchInterval: 30_000 });
+  const { enabled: scEnabled } = useSourceControlEnabled();
+  const { enabled: linearEnabled } = useLinearEnabled();
+  const { enabled: todosEnabled } = useTodosEnabled();
+  const { enabled: agentsEnabled } = useAgentsEnabled();
+  const ping = trpc.health.ping.useQuery(undefined, {
+    refetchInterval: (query) => (query.state.data ? 30_000 : 2_000),
+    retry: 3,
+  });
   const serverUp = !!ping.data;
   const utils = trpc.useUtils();
   const [syncing, setSyncing] = useState(false);
@@ -49,13 +62,9 @@ function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           <div className="relative group">
-            {serverUp ? (
-              <CheckCircle className="h-4.5 w-4.5 text-neon-green" />
-            ) : (
-              <XCircle className="h-4.5 w-4.5 text-red-400" />
-            )}
+            <CheckCircle className="h-4.5 w-4.5 text-neon-green" />
             <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 whitespace-nowrap rounded-lg border border-border bg-popover px-3 py-1.5 text-[11px] text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-              {serverUp ? "Server connected" : "Server offline"}
+              Server connected
             </div>
           </div>
           <button
@@ -78,15 +87,19 @@ function Dashboard() {
         <div className="flex-1 overflow-y-auto">
           <PanelGrid>
             <QuickStatsPanel />
+            {agentsEnabled && <AgentMonitorPanel />}
             {slackEnabled && <SlackSummaryPanel />}
-            <AgentMonitorPanel />
+            {scEnabled && <MyMRsPanel />}
+            {linearEnabled && <MyTicketsPanel />}
           </PanelGrid>
         </div>
 
         {/* Pinned Todos column */}
-        <div className="flex w-80 shrink-0 flex-col border-l border-border xl:w-[340px]">
-          <TodoPanel />
-        </div>
+        {todosEnabled && (
+          <div className="flex w-80 shrink-0 flex-col border-l border-border xl:w-[340px]">
+            <TodoPanel />
+          </div>
+        )}
       </div>
     </div>
   );

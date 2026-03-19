@@ -40,7 +40,7 @@ async function createMergeTodo(mr: { number: number; title: string; webUrl: stri
   const todoId = crypto.randomUUID();
   await db.insert(todos).values({
     id: todoId,
-    source: "source-control",
+    source: mr.provider,
     title: `Merge ${prefix}${mr.number}: ${mr.title}`,
     completed: false,
     url: mr.webUrl,

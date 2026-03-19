@@ -24,19 +24,25 @@ async function getGroupId(): Promise<string> {
 }
 
 async function gitlabFetch(path: string, token: string, init?: RequestInit) {
-  const resp = await fetch(`${GITLAB_BASE}${path}`, {
-    ...init,
-    headers: {
-      "PRIVATE-TOKEN": token,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-  if (!resp.ok) {
-    const body = await resp.text().catch(() => "");
-    throw new Error(`GitLab API ${resp.status}: ${body}`);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const resp = await fetch(`${GITLAB_BASE}${path}`, {
+      ...init,
+      headers: {
+        "PRIVATE-TOKEN": token,
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+    });
+    if (resp.status >= 500 && attempt === 0) {
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      throw new Error(`GitLab API ${resp.status}: ${body}`);
+    }
+    return resp.json();
   }
-  return resp.json();
 }
 
 // ── Types ──
@@ -294,9 +300,19 @@ async function enrichMR(
   };
 }
 
+// ── Cache ──
+
+let cachedMRs: EnrichedMergeRequest[] = [];
+let mrCacheTime = 0;
+const MR_CACHE_TTL = 60_000; // 60s
+
 // ── Public API ──
 
 export async function getMergeRequests(): Promise<EnrichedMergeRequest[]> {
+  if (Date.now() - mrCacheTime < MR_CACHE_TTL && cachedMRs.length > 0) {
+    return cachedMRs;
+  }
+
   const token = await getToken();
   const groupId = await getGroupId();
 
@@ -334,6 +350,9 @@ export async function getMergeRequests(): Promise<EnrichedMergeRequest[]> {
     }
     return b.updated_at.localeCompare(a.updated_at);
   });
+
+  cachedMRs = enriched;
+  mrCacheTime = Date.now();
 
   return enriched;
 }

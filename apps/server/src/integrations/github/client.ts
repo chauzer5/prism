@@ -296,9 +296,19 @@ async function enrichPR(
   };
 }
 
+// ── Cache ──
+
+let cachedPRs: EnrichedPullRequest[] = [];
+let prCacheTime = 0;
+const PR_CACHE_TTL = 60_000; // 60s
+
 // ── Public API ──
 
 export async function getPullRequests(): Promise<EnrichedPullRequest[]> {
+  if (Date.now() - prCacheTime < PR_CACHE_TTL && cachedPRs.length > 0) {
+    return cachedPRs;
+  }
+
   const token = await getToken();
   const org = await getOrg();
 
@@ -336,6 +346,9 @@ export async function getPullRequests(): Promise<EnrichedPullRequest[]> {
     }
     return b.updated_at.localeCompare(a.updated_at);
   });
+
+  cachedPRs = enriched;
+  prCacheTime = Date.now();
 
   return enriched;
 }

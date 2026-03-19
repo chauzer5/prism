@@ -21,6 +21,10 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useSlackEnabled } from "@/hooks/useSlackEnabled";
+import { useSourceControlEnabled } from "@/hooks/useSourceControlEnabled";
+import { useLinearEnabled } from "@/hooks/useLinearEnabled";
+import { useAgentsEnabled } from "@/hooks/useAgentsEnabled";
+import { useTodosEnabled } from "@/hooks/useTodosEnabled";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { trpc } from "@/trpc";
 
@@ -189,6 +193,10 @@ export function Sidebar() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const { enabled: slackEnabled } = useSlackEnabled();
+  const { enabled: scEnabled } = useSourceControlEnabled();
+  const { enabled: linearEnabled } = useLinearEnabled();
+  const { enabled: agentsEnabled } = useAgentsEnabled();
+  const { enabled: todosEnabled } = useTodosEnabled();
 
   const todosQuery = trpc.todos.listAll.useQuery(undefined, { refetchInterval: 30_000 });
   const activeTodoCount = todosQuery.data?.counts.active ?? 0;
@@ -205,11 +213,11 @@ export function Sidebar() {
     {
       label: "Work",
       items: [
-        { icon: CheckSquare, label: "Todos", href: "/todos", count: activeTodoCount > 0 ? activeTodoCount : undefined },
-        { icon: GitMerge, label: "Source Control", href: "/source-control" },
-        { icon: LayoutList, label: "Linear", href: "/linear" },
+        ...(todosEnabled ? [{ icon: CheckSquare, label: "Todos", href: "/todos", count: activeTodoCount > 0 ? activeTodoCount : undefined } as const] : []),
+        ...(scEnabled ? [{ icon: GitMerge, label: "Source Control", href: "/source-control" } as const] : []),
+        ...(linearEnabled ? [{ icon: LayoutList, label: "Linear", href: "/linear" } as const] : []),
         ...(slackEnabled ? [{ icon: MessageSquare, label: "Slack", href: "/slack" } as const] : []),
-        { icon: Bot, label: "Agent", href: "/agents" },
+        ...(agentsEnabled ? [{ icon: Bot, label: "Agent", href: "/agents" } as const] : []),
       ],
     },
     {

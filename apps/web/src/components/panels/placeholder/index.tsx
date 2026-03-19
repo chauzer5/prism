@@ -1,23 +1,10 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { trpc } from "@/trpc";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useSlackEnabled } from "@/hooks/useSlackEnabled";
+import { useSourceControlEnabled } from "@/hooks/useSourceControlEnabled";
 import { cn } from "@/lib/utils";
-
-const STAT_CONFIGS = [
-  {
-    key: "prs",
-    label: "Open PRs",
-    color: "purple" as const,
-    href: "/source-control",
-  },
-  {
-    key: "unread",
-    label: "Unread DMs",
-    color: "cyan" as const,
-    href: "/slack",
-  },
-] as const;
 
 const COLOR_MAP = {
   pink: {
@@ -53,11 +40,15 @@ const COLOR_MAP = {
 } as const;
 
 export function QuickStatsPanel() {
+  const { enabled: slackEnabled } = useSlackEnabled();
+  const { enabled: scEnabled } = useSourceControlEnabled();
   const unreadQuery = trpc.slack.unreadDms.useQuery(undefined, {
     refetchInterval: 30_000,
+    enabled: slackEnabled,
   });
   const prsQuery = trpc.sourceControl.pullRequests.useQuery(undefined, {
     refetchInterval: 30_000,
+    enabled: scEnabled,
   });
 
   const utils = trpc.useUtils();
@@ -78,31 +69,48 @@ export function QuickStatsPanel() {
   const unreadCount = unreadQuery.data?.checkedAt
     ? unreadQuery.data.unreadCount
     : null;
-  const stats: { value: string; delta?: string; deltaUp?: boolean; barPercent: number }[] = [
-    {
-      value: String(myPRCount),
-      delta: needsReview > 0 ? `${needsReview} need review` : undefined,
-      deltaUp: needsReview > 0,
-      barPercent: Math.min(myPRCount * 15, 100),
-    },
-    {
-      value: unreadCount != null ? String(unreadCount) : "--",
-      delta: unreadCount != null && unreadCount > 0 ? `${unreadCount} new` : undefined,
-      deltaUp: unreadCount != null && unreadCount > 0,
-      barPercent: unreadCount != null ? Math.min(unreadCount * 15, 100) : 0,
-    },
-  ];
+
+  const visibleStats = useMemo(() => {
+    const items: { key: string; label: string; color: keyof typeof COLOR_MAP; href: string; value: string; delta?: string; deltaUp?: boolean; barPercent: number }[] = [];
+
+    if (scEnabled) {
+      items.push({
+        key: "prs",
+        label: "Open PRs",
+        color: "purple",
+        href: "/source-control",
+        value: String(myPRCount),
+        delta: needsReview > 0 ? `${needsReview} need review` : undefined,
+        deltaUp: needsReview > 0,
+        barPercent: Math.min(myPRCount * 15, 100),
+      });
+    }
+
+    if (slackEnabled) {
+      items.push({
+        key: "unread",
+        label: "Unread DMs",
+        color: "cyan",
+        href: "/slack",
+        value: unreadCount != null ? String(unreadCount) : "--",
+        delta: unreadCount != null && unreadCount > 0 ? `${unreadCount} new` : undefined,
+        deltaUp: unreadCount != null && unreadCount > 0,
+        barPercent: unreadCount != null ? Math.min(unreadCount * 15, 100) : 0,
+      });
+    }
+
+    return items;
+  }, [myPRCount, needsReview, unreadCount, slackEnabled, scEnabled]);
 
   return (
-    <>
-      {STAT_CONFIGS.map((cfg, i) => {
-        const s = stats[i];
-        const colors = COLOR_MAP[cfg.color];
+    <div className="col-span-full grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-4">
+      {visibleStats.map((s, i) => {
+        const colors = COLOR_MAP[s.color];
 
         return (
           <Link
-            key={cfg.key}
-            to={cfg.href}
+            key={s.key}
+            to={s.href}
             className={cn(
               "animate-glass-in relative self-start overflow-hidden rounded-xl border border-[rgba(255,45,123,0.08)] bg-[rgba(30,22,55,0.7)] p-4 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]",
               `stagger-${i + 1}`
@@ -118,7 +126,7 @@ export function QuickStatsPanel() {
 
             {/* Label */}
             <div className="mb-2 font-display text-[9px] font-semibold tracking-[3px] uppercase text-text-muted">
-              {cfg.label}
+              {s.label}
             </div>
 
             {/* Value + delta row */}
@@ -154,6 +162,6 @@ export function QuickStatsPanel() {
           </Link>
         );
       })}
-    </>
+    </div>
   );
 }

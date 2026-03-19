@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 import { router, publicProcedure } from "../trpc.js";
 import { db } from "../db/index.js";
 import { settings } from "../db/schema.js";
@@ -113,4 +116,51 @@ export const settingsRouter = router({
   whoami: publicProcedure.query(async () => {
     return resolveUserName();
   }),
+
+  listDirectories: publicProcedure
+    .input(z.object({ prefix: z.string() }))
+    .query(({ input }) => {
+      // Expand ~ to home directory
+      const expanded = input.prefix.startsWith("~")
+        ? path.join(os.homedir(), input.prefix.slice(1))
+        : input.prefix;
+
+      // Determine the parent dir to list and the partial name to filter by
+      let dirToList: string;
+      let filter: string;
+
+      try {
+        const stat = fs.statSync(expanded);
+        if (stat.isDirectory()) {
+          // Input is a complete directory — list its children
+          dirToList = expanded;
+          filter = "";
+        } else {
+          dirToList = path.dirname(expanded);
+          filter = path.basename(expanded).toLowerCase();
+        }
+      } catch {
+        // Path doesn't exist — list parent and filter by partial basename
+        dirToList = path.dirname(expanded);
+        filter = path.basename(expanded).toLowerCase();
+      }
+
+      try {
+        const entries = fs.readdirSync(dirToList, { withFileTypes: true });
+        const dirs = entries
+          .filter((e) => {
+            if (!e.isDirectory()) return false;
+            if (e.name.startsWith(".")) return false;
+            if (filter && !e.name.toLowerCase().startsWith(filter)) return false;
+            return true;
+          })
+          .map((e) => path.join(dirToList, e.name))
+          .sort()
+          .slice(0, 20);
+
+        return dirs;
+      } catch {
+        return [];
+      }
+    }),
 });

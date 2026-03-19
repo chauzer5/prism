@@ -17,12 +17,6 @@ const STAT_CONFIGS = [
     color: "cyan" as const,
     href: "/slack",
   },
-  {
-    key: "agents",
-    label: "Agents",
-    color: "yellow" as const,
-    href: "/agents",
-  },
 ] as const;
 
 const COLOR_MAP = {
@@ -62,9 +56,6 @@ export function QuickStatsPanel() {
   const unreadQuery = trpc.slack.unreadDms.useQuery(undefined, {
     refetchInterval: 30_000,
   });
-  const agentsQuery = trpc.agents.list.useQuery(undefined, {
-    refetchInterval: 5_000,
-  });
   const prsQuery = trpc.sourceControl.pullRequests.useQuery(undefined, {
     refetchInterval: 30_000,
   });
@@ -87,9 +78,6 @@ export function QuickStatsPanel() {
   const unreadCount = unreadQuery.data?.checkedAt
     ? unreadQuery.data.unreadCount
     : null;
-  const runningAgents = agentsQuery.data?.filter((a) => a.status === "running").length ?? 0;
-  const totalAgents = agentsQuery.data?.length ?? 0;
-
   const stats: { value: string; delta?: string; deltaUp?: boolean; barPercent: number }[] = [
     {
       value: String(myPRCount),
@@ -102,12 +90,6 @@ export function QuickStatsPanel() {
       delta: unreadCount != null && unreadCount > 0 ? `${unreadCount} new` : undefined,
       deltaUp: unreadCount != null && unreadCount > 0,
       barPercent: unreadCount != null ? Math.min(unreadCount * 15, 100) : 0,
-    },
-    {
-      value: String(runningAgents),
-      delta: totalAgents > 0 ? `${totalAgents} total` : undefined,
-      deltaUp: runningAgents > 0,
-      barPercent: totalAgents > 0 ? Math.round((runningAgents / totalAgents) * 100) : 0,
     },
   ];
 

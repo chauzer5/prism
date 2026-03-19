@@ -1,5 +1,6 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { PersistentTerminal } from "@/components/PersistentTerminal";
 import { useTheme } from "@/hooks/useTheme";
 
 const PARTICLES = [
@@ -15,6 +16,8 @@ const PARTICLES = [
 
 function RootLayout() {
   const { theme } = useTheme();
+  const routerState = useRouterState();
+  const onAgentsPage = routerState.location.pathname === "/agents";
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -47,8 +50,24 @@ function RootLayout() {
       <div className="relative z-[2] flex">
         <Sidebar />
       </div>
-      <main className="relative z-[1] flex-1 overflow-auto">
-        <Outlet />
+      <main className="relative z-[1] flex-1 overflow-hidden">
+        <div className="h-full overflow-auto" style={{ display: onAgentsPage ? "none" : "block" }}>
+          <Outlet />
+        </div>
+        <div className="h-full flex flex-col" style={{ display: onAgentsPage ? "flex" : "none" }}>
+          {/* Agents header */}
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+            <div>
+              <h1 className="font-display text-lg font-bold tracking-[2px] uppercase text-cream">
+                Agent
+              </h1>
+              <p className="mt-0.5 text-xs text-text-muted">
+                Claude Code terminal
+              </p>
+            </div>
+          </div>
+          <PersistentTerminal visible={onAgentsPage} />
+        </div>
       </main>
     </div>
   );

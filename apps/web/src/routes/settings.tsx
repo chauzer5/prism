@@ -1,6 +1,6 @@
 import { createRoute } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Settings,
   MessageSquare,
@@ -141,13 +141,172 @@ function CredentialRow({
   );
 }
 
+function AgentCwdSetting() {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState(-1);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const currentValue = trpc.settings.get.useQuery({ key: "agents.cwd" });
+  const setSetting = trpc.settings.set.useMutation({
+    onSuccess: () => {
+      setEditing(false);
+      setValue("");
+      setShowSuggestions(false);
+      currentValue.refetch();
+    },
+  });
+
+  const dirsQuery = trpc.settings.listDirectories.useQuery(
+    { prefix: value },
+    { enabled: editing && value.length > 0 },
+  );
+  const suggestions = dirsQuery.data ?? [];
+
+  useEffect(() => {
+    setSelectedIdx(-1);
+  }, [suggestions]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    if (showSuggestions) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showSuggestions]);
+
+  function selectDir(dir: string) {
+    setValue(dir);
+    setShowSuggestions(true);
+    setSelectedIdx(-1);
+  }
+
+  function handleSave() {
+    if (value.trim()) {
+      setSetting.mutate({ key: "agents.cwd", value: value.trim() });
+    }
+  }
+
+  const display = currentValue.data || "~ (home directory)";
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="text-xs font-semibold text-cream">Working Directory</label>
+          <p className="mt-0.5 text-[11px] text-text-muted">
+            The directory agents will run in when spawned
+          </p>
+        </div>
+      </div>
+      {editing ? (
+        <div ref={wrapperRef} className="relative">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="/Users/you/projects"
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => value.length > 0 && setShowSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (selectedIdx >= 0 && selectedIdx < suggestions.length) {
+                    selectDir(suggestions[selectedIdx]);
+                  } else {
+                    handleSave();
+                  }
+                } else if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setSelectedIdx((i) => Math.min(i + 1, suggestions.length - 1));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSelectedIdx((i) => Math.max(i - 1, -1));
+                } else if (e.key === "Tab" && suggestions.length > 0) {
+                  e.preventDefault();
+                  const idx = selectedIdx >= 0 ? selectedIdx : 0;
+                  selectDir(suggestions[idx] + "/");
+                } else if (e.key === "Escape") {
+                  setShowSuggestions(false);
+                }
+              }}
+              autoFocus
+              className="flex-1 rounded-lg border border-border bg-[rgba(0,0,0,0.3)] px-3 py-1.5 font-mono text-xs text-cream placeholder:text-text-muted focus:border-neon-pink/30 focus:outline-none"
+            />
+            <button
+              onClick={handleSave}
+              disabled={setSetting.isPending || !value.trim()}
+              className="rounded-lg bg-neon-pink-dark px-3 py-1.5 text-xs font-medium text-neon-pink-bright transition-all hover:bg-neon-pink disabled:opacity-50"
+            >
+              {setSetting.isPending ? "..." : "Save"}
+            </button>
+            <button
+              onClick={() => { setEditing(false); setValue(""); setShowSuggestions(false); }}
+              className="rounded p-1 text-text-muted hover:text-cream"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute left-0 right-12 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-xl">
+              {suggestions.map((dir, i) => (
+                <button
+                  key={dir}
+                  onClick={() => selectDir(dir + "/")}
+                  className={cn(
+                    "flex w-full items-center px-3 py-1.5 font-mono text-xs text-left transition-colors",
+                    i === selectedIdx
+                      ? "bg-[rgba(255,45,123,0.08)] text-cream"
+                      : "text-text-secondary hover:bg-[rgba(255,45,123,0.04)]",
+                  )}
+                >
+                  {dir}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-text-secondary">{display}</span>
+          <button
+            onClick={() => {
+              setValue(currentValue.data ?? "");
+              setEditing(true);
+            }}
+            className="rounded-lg border border-[rgba(139,92,246,0.3)] bg-[rgba(139,92,246,0.08)] px-3 py-1.5 text-xs font-medium text-neon-purple transition-all hover:bg-[rgba(139,92,246,0.15)]"
+          >
+            {currentValue.data ? "Change" : "Set"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsPage() {
   const [slackModel, setSlackModel] = useState("");
   const [saved, setSaved] = useState(false);
   const slack = useSlackEnabled();
 
   const currentModel = trpc.settings.get.useQuery({ key: "slack.summarizationModel" });
-  const modelsQuery = trpc.agents.listModels.useQuery();
+  const modelsQuery = {
+    isLoading: false,
+    data: [
+      {
+        provider: "Anthropic",
+        models: [
+          { id: "claude-opus-4-6", name: "Claude Opus 4.6" },
+          { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
+          { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
+        ],
+      },
+    ],
+  };
 
   const setSetting = trpc.settings.set.useMutation({
     onSuccess: () => {
@@ -418,7 +577,7 @@ function SettingsPage() {
 
           {/* Agents section */}
           <section className="rounded-xl border border-border bg-card">
-            <div className="flex items-center gap-2.5 px-5 py-3.5">
+            <div className="flex items-center gap-2.5 border-b border-border px-5 py-3.5">
               <Bot className="h-4 w-4 text-neon-pink" />
               <h2 className="text-sm font-semibold text-cream">Agents</h2>
               <div className="ml-auto flex items-center gap-2">
@@ -436,6 +595,9 @@ function SettingsPage() {
                   )}
                 </button>
               </div>
+            </div>
+            <div className="space-y-5 p-5">
+              <AgentCwdSetting />
             </div>
           </section>
         </div>

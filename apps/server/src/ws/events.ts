@@ -25,13 +25,13 @@ export function handleCommand(ws: WSContext, command: WSCommand) {
       // Client acknowledged ping
       break;
     case "agent:stdin":
-      sendStdin(command.agentId, command.data);
+      sendStdin(command.data);
       break;
     case "agent:stop":
-      stopAgent(command.agentId);
+      stopAgent();
       break;
     case "agent:resize":
-      resizeAgent(command.agentId, command.cols, command.rows);
+      resizeAgent(command.cols, command.rows);
       break;
     default:
       console.log("[ws] unhandled command:", command.type);

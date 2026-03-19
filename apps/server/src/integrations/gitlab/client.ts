@@ -282,16 +282,6 @@ async function enrichMR(
     needs_your_approval = true;
   }
 
-  // Check mentions in notes
-  const notes: MergeRequestNote[] = await gitlabFetch(
-    `${base}/notes?per_page=50`,
-    token,
-  );
-  const mentionPattern = `@${username}`;
-  const you_are_mentioned = notes.some(
-    (note) => !note.system && note.body.includes(mentionPattern),
-  );
-
   const is_mine = mr.author_username.toLowerCase() === username.toLowerCase();
   const is_team_member = !is_mine && teamNames.has(mr.author);
 
@@ -302,7 +292,7 @@ async function enrichMR(
     needs_your_approval,
     approval_rules_needing_you,
     approved,
-    you_are_mentioned,
+    you_are_mentioned: false,
   };
 }
 
@@ -337,7 +327,7 @@ export async function getMergeRequests(): Promise<EnrichedMergeRequest[]> {
 
   // Enrich MRs concurrently (batch of 5)
   const enriched: EnrichedMergeRequest[] = [];
-  const batchSize = 5;
+  const batchSize = 15;
   for (let i = 0; i < mrs.length; i += batchSize) {
     const batch = mrs.slice(i, i + batchSize);
     const results = await Promise.allSettled(

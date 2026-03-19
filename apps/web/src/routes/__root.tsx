@@ -47,10 +47,10 @@ function RootLayout() {
       {/* Deep Space overlay */}
       {theme === "deep-space" && <div className="starfield" />}
 
-      <div className="relative z-[2] flex">
+      <div className="relative flex">
         <Sidebar />
       </div>
-      <main className="relative z-[1] flex-1 overflow-hidden">
+      <main className="relative flex-1 overflow-hidden">
         <div className="h-full overflow-auto" style={{ display: onAgentsPage ? "none" : "block" }}>
           <Outlet />
         </div>

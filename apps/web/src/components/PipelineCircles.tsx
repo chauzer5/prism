@@ -103,7 +103,8 @@ export function GitLabPipelineCircles({
   const { tooltip, show, scheduleHide, cancelHide } = useTooltip();
 
   const stageMap = new Map<string, PipelineJob[]>();
-  for (const job of jobs) {
+  // GitLab returns jobs in reverse order — reverse to get stages in pipeline order
+  for (const job of [...jobs].reverse()) {
     const existing = stageMap.get(job.stage) ?? [];
     existing.push(job);
     stageMap.set(job.stage, existing);
@@ -117,12 +118,11 @@ export function GitLabPipelineCircles({
       <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
         Pipeline {pipelineStatus && <span className="ml-1 font-mono normal-case">{pipelineStatus}</span>}
       </h3>
-      <div className="flex items-center flex-wrap gap-y-2 py-1">
-        {stages.map(([stage, stageJobs], i) => {
+      <div className="flex items-center flex-wrap gap-3 py-1">
+        {stages.map(([stage, stageJobs]) => {
           const ss = stageStatus(stageJobs);
           return (
             <div key={stage} className="flex items-center">
-              {i > 0 && <div className={cn("h-[2px] w-5 shrink-0", connectorColor(ss))} />}
               <div
                 className="group relative flex flex-col items-center gap-1 shrink-0"
                 onMouseEnter={(e) => show(stage, stageJobs.map((j) => ({ id: j.id, name: j.name, status: j.status, allowFailure: j.allow_failure })), e)}

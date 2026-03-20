@@ -47,7 +47,7 @@ function RootLayout() {
       {/* Deep Space overlay */}
       {theme === "deep-space" && <div className="starfield" />}
 
-      <div className="relative flex">
+      <div className="relative z-10 flex">
         <Sidebar />
       </div>
       <main className="relative flex-1 overflow-hidden">

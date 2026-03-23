@@ -73,7 +73,7 @@ export function QuickStatsPanel() {
     if (scEnabled) {
       items.push({
         key: "prs",
-        label: "Open PRs",
+        label: "Open MRs",
         color: "purple",
         href: "/source-control",
         value: String(myPRCount),

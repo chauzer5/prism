@@ -9,19 +9,19 @@ const ACTIVITY_CONFIG = {
     label: "Not running",
     dotClass: "bg-text-muted/40",
     textClass: "text-text-muted",
-    link: "Start agent →",
+    link: "Launch agent →",
   },
   busy: {
     label: "Working",
     dotClass: "bg-neon-yellow shadow-[0_0_8px_rgba(250,204,21,0.5)] animate-pulse",
     textClass: "text-neon-yellow",
-    link: "View terminal →",
+    link: "Focus terminal →",
   },
   idle: {
     label: "Waiting for input",
     dotClass: "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.5)]",
     textClass: "text-neon-green",
-    link: "Open terminal →",
+    link: "Focus terminal →",
   },
 } as const;
 
@@ -34,8 +34,22 @@ export function AgentMonitorPanel() {
     staleTime: 0,
   });
 
+  const focus = trpc.agents.focusTerminal.useMutation();
+
   const activity = status.data?.activity ?? "not_running";
+  const isRunning = status.data?.running ?? false;
+  const isExternal = status.data?.mode === "external";
   const config = ACTIVITY_CONFIG[activity];
+
+  function handleClick() {
+    if (isRunning && isExternal) {
+      // Focus the Terminal.app window directly
+      focus.mutate();
+    } else {
+      // Navigate to agent page to launch or manage
+      navigate({ to: "/agents" });
+    }
+  }
 
   return (
     <PanelShell
@@ -49,9 +63,12 @@ export function AgentMonitorPanel() {
         <div className="flex items-center gap-2">
           <div className={cn("h-2.5 w-2.5 rounded-full", config.dotClass)} />
           <span className={config.textClass}>{config.label}</span>
+          {isRunning && isExternal && (
+            <span className="text-text-muted/50">· Terminal.app</span>
+          )}
         </div>
         <button
-          onClick={() => navigate({ to: "/agents" })}
+          onClick={handleClick}
           className="shrink-0 text-neon-pink hover:underline text-[11px]"
         >
           {config.link}

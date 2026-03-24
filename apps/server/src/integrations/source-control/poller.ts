@@ -131,8 +131,9 @@ async function pollMRStatus() {
       const prefix = mr.provider === "gitlab" ? "!" : "#";
 
       if (prev) {
-        // Pipeline status changed
-        if (prev.pipelineStatus !== mr.pipelineStatus && mr.pipelineStatus) {
+        // Pipeline status changed — only notify on terminal states
+        const notifyStatuses = ["success", "failed"];
+        if (prev.pipelineStatus !== mr.pipelineStatus && mr.pipelineStatus && notifyStatuses.includes(mr.pipelineStatus)) {
           await createNotification({
             type: "mr_pipeline",
             title: `Pipeline ${mr.pipelineStatus} on ${prefix}${mr.number}`,

@@ -1,4 +1,4 @@
-import { createRoute } from "@tanstack/react-router";
+import { createRoute, useNavigate } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
 import { useState, useMemo, useCallback } from "react";
 import {
@@ -13,11 +13,14 @@ import {
   ChevronRight,
   Users,
   Settings,
+  Bot,
+  Send,
 } from "lucide-react";
 import { TeamSetupModal } from "@/components/TeamSetupModal";
 import { GitLabPipelineCircles, GitHubCheckCircles } from "@/components/PipelineCircles";
 import { trpc } from "@/trpc";
 import { cn, timeAgo } from "@/lib/utils";
+import { useAgentsStore } from "@/stores/agents";
 
 // ── Helpers ──
 
@@ -74,9 +77,13 @@ interface UnifiedPR {
 function PRCard({
   pr,
   onSelect,
+  onReview,
+  onRequestReview,
 }: {
   pr: UnifiedPR;
   onSelect: () => void;
+  onReview?: () => void;
+  onRequestReview?: () => void;
 }) {
   const repoShort = pr.provider === "github"
     ? (pr.repo.split("/").pop() ?? pr.repo)
@@ -136,40 +143,62 @@ function PRCard({
         </div>
 
         {/* Right status indicators */}
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <div className="flex items-center gap-1.5">
-            <span className={cn(
-              "text-[10px] font-medium",
-              pr.check_status === "success" ? "text-neon-green"
-                : pr.check_status === "running" || pr.check_status === "pending" ? "text-neon-yellow"
-                : pr.check_status === "failed" || pr.check_status === "failure" ? "text-red-400"
-                : pr.check_status === "manual" || pr.check_status === "created" || pr.check_status === "waiting_for_resource" || pr.check_status === "scheduled" ? "text-neon-purple"
-                : "text-text-muted",
-            )}>
-              Pipeline
-            </span>
-            <div className={cn(
-              "h-2.5 w-2.5 rounded-full",
-              pr.check_status === "success" ? "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.5)]"
-                : pr.check_status === "running" || pr.check_status === "pending" ? "bg-neon-yellow shadow-[0_0_8px_rgba(250,204,21,0.5)]"
-                : pr.check_status === "failed" || pr.check_status === "failure" ? "bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                : pr.check_status === "manual" || pr.check_status === "created" || pr.check_status === "waiting_for_resource" || pr.check_status === "scheduled" ? "bg-neon-purple shadow-[0_0_8px_rgba(168,85,247,0.5)]"
-                : "bg-text-muted/40",
-            )} />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className={cn(
-              "text-[10px] font-medium",
-              pr.approved ? "text-neon-green" : "text-text-muted",
-            )}>
-              Approval
-            </span>
-            <div className={cn(
-              "h-2.5 w-2.5 rounded-full",
-              pr.approved
-                ? "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.5)]"
-                : "bg-text-muted/40",
-            )} />
+        <div className="flex shrink-0 items-center gap-2.5">
+          {onRequestReview && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRequestReview(); }}
+              className="flex items-center gap-1 rounded-md border border-neon-pink/30 bg-[rgba(255,45,123,0.08)] px-2 py-1.5 text-[10px] font-medium text-neon-pink transition-all hover:border-neon-pink/60 hover:bg-[rgba(255,45,123,0.15)] hover:shadow-[0_0_8px_rgba(255,45,123,0.3)]"
+              title="Launch agent to request MR review on Slack"
+            >
+              <Send className="h-3 w-3" />
+              Request
+            </button>
+          )}
+          {onReview && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onReview(); }}
+              className="flex items-center gap-1 rounded-md border border-neon-cyan/30 bg-[rgba(34,211,238,0.08)] px-2 py-1.5 text-[10px] font-medium text-neon-cyan transition-all hover:border-neon-cyan/60 hover:bg-[rgba(34,211,238,0.15)] hover:shadow-[0_0_8px_rgba(34,211,238,0.3)]"
+              title="Launch agent to review MR"
+            >
+              <Bot className="h-3 w-3" />
+              Review
+            </button>
+          )}
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className={cn(
+                "text-[10px] font-medium",
+                pr.check_status === "success" ? "text-neon-green"
+                  : pr.check_status === "running" || pr.check_status === "pending" ? "text-neon-yellow"
+                  : pr.check_status === "failed" || pr.check_status === "failure" ? "text-red-400"
+                  : pr.check_status === "manual" || pr.check_status === "created" || pr.check_status === "waiting_for_resource" || pr.check_status === "scheduled" ? "text-neon-purple"
+                  : "text-text-muted",
+              )}>
+                Pipeline
+              </span>
+              <div className={cn(
+                "h-2.5 w-2.5 rounded-full",
+                pr.check_status === "success" ? "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.5)]"
+                  : pr.check_status === "running" || pr.check_status === "pending" ? "bg-neon-yellow shadow-[0_0_8px_rgba(250,204,21,0.5)]"
+                  : pr.check_status === "failed" || pr.check_status === "failure" ? "bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                  : pr.check_status === "manual" || pr.check_status === "created" || pr.check_status === "waiting_for_resource" || pr.check_status === "scheduled" ? "bg-neon-purple shadow-[0_0_8px_rgba(168,85,247,0.5)]"
+                  : "bg-text-muted/40",
+              )} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={cn(
+                "text-[10px] font-medium",
+                pr.approved ? "text-neon-green" : "text-text-muted",
+              )}>
+                Approval
+              </span>
+              <div className={cn(
+                "h-2.5 w-2.5 rounded-full",
+                pr.approved
+                  ? "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.5)]"
+                  : "bg-text-muted/40",
+              )} />
+            </div>
           </div>
         </div>
       </div>
@@ -474,6 +503,28 @@ function SourceControlPage() {
   );
   const { data: teamMembers } = trpc.team.members.useQuery();
   const utils = trpc.useUtils();
+  const navigate = useNavigate();
+  const setSelectedAgentId = useAgentsStore((s) => s.setSelectedAgentId);
+  const spawnAgent = trpc.agents.spawn.useMutation({
+    onSuccess: (data) => {
+      setSelectedAgentId(data.id);
+      navigate({ to: "/agents" });
+    },
+  });
+
+  const handleReview = useCallback((pr: UnifiedPR) => {
+    spawnAgent.mutate({
+      prompt: `/gitlab-review-mr ${pr.web_url}`,
+      name: `Review !${pr.number}`,
+    });
+  }, [spawnAgent]);
+
+  const handleRequestReview = useCallback((pr: UnifiedPR) => {
+    spawnAgent.mutate({
+      prompt: `/gitlab-request-mr-review ${pr.web_url}`,
+      name: `Request Review !${pr.number}`,
+    });
+  }, [spawnAgent]);
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
@@ -671,6 +722,7 @@ function SourceControlPage() {
                         setSelectedPR({ provider: "github", repo: pr.repo, number: pr.number });
                       }
                     }}
+                    onReview={pr.provider === "gitlab" ? () => handleReview(pr) : undefined}
                   />
                 </div>
               ))}
@@ -700,6 +752,8 @@ function SourceControlPage() {
                         setSelectedPR({ provider: "github", repo: pr.repo, number: pr.number });
                       }
                     }}
+                    onReview={pr.provider === "gitlab" ? () => handleReview(pr) : undefined}
+                    onRequestReview={tab === "mine" && pr.provider === "gitlab" ? () => handleRequestReview(pr) : undefined}
                   />
                 </div>
               ))}

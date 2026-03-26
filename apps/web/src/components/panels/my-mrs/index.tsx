@@ -4,10 +4,20 @@ import { trpc } from "@/trpc";
 import { PanelShell } from "@/components/layout/PanelShell";
 import { cn, timeAgo } from "@/lib/utils";
 
-function statusColor(status: string | null): string {
+function pipelineDotClass(status: string | null): string {
+  switch (status) {
+    case "success": return "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.5)]";
+    case "failed": case "failure": return "bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.5)]";
+    case "running": case "pending": return "bg-neon-yellow shadow-[0_0_8px_rgba(250,204,21,0.5)]";
+    case "manual": case "created": case "waiting_for_resource": case "scheduled": return "bg-neon-purple shadow-[0_0_8px_rgba(168,85,247,0.5)]";
+    default: return "bg-text-muted/40";
+  }
+}
+
+function pipelineTextClass(status: string | null): string {
   switch (status) {
     case "success": return "text-neon-green";
-    case "failed": return "text-red-400";
+    case "failed": case "failure": return "text-red-400";
     case "running": case "pending": return "text-neon-yellow";
     case "manual": case "created": case "waiting_for_resource": case "scheduled": return "text-neon-purple";
     default: return "text-text-muted";
@@ -57,12 +67,15 @@ export function MyMRsPanel() {
                   )}
                 </div>
                 <div className="mt-0.5 truncate text-xs font-medium text-cream">{mr.title}</div>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-text-muted">
-                  <span className={cn("font-semibold", statusColor(mr.check_status))}>
-                    {mr.check_status ?? "—"}
-                  </span>
-                  <span>·</span>
-                  <span>{mr.approved ? "Approved" : "Pending review"}</span>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-text-muted">
+                  <div className="flex items-center gap-1">
+                    <span className={cn("font-medium", pipelineTextClass(mr.check_status))}>Pipeline</span>
+                    <div className={cn("h-2 w-2 rounded-full", pipelineDotClass(mr.check_status))} />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className={cn("font-medium", mr.approved ? "text-neon-green" : "text-text-muted")}>Approval</span>
+                    <div className={cn("h-2 w-2 rounded-full", mr.approved ? "bg-neon-green shadow-[0_0_8px_rgba(0,255,136,0.5)]" : "bg-text-muted/40")} />
+                  </div>
                   <span>·</span>
                   <span>{timeAgo(mr.updated_at)}</span>
                 </div>

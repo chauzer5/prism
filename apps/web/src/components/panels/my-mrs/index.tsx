@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { GitMerge, ExternalLink } from "lucide-react";
+import { GitMerge } from "lucide-react";
 import { trpc } from "@/trpc";
 import { PanelShell } from "@/components/layout/PanelShell";
 import { cn, timeAgo } from "@/lib/utils";
@@ -48,12 +48,15 @@ export function MyMRsPanel() {
       ) : (
         <div className="space-y-1.5">
           {myMRs.map((mr) => (
-            <a
+            <button
               key={mr.id}
-              href={mr.web_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-lg px-2.5 py-2 transition-all hover:bg-[rgba(255,45,123,0.04)]"
+              onClick={() => {
+                const prParam = mr.provider === "gitlab"
+                  ? `gitlab:${mr.repo}:${mr.number}`
+                  : `github:${mr.repo}:${mr.number}`;
+                navigate({ to: "/source-control", search: { pr: prParam } });
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-all hover:bg-[rgba(255,45,123,0.04)]"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -80,8 +83,7 @@ export function MyMRsPanel() {
                   <span>{timeAgo(mr.updated_at)}</span>
                 </div>
               </div>
-              <ExternalLink className="h-3 w-3 shrink-0 text-text-muted" />
-            </a>
+            </button>
           ))}
         </div>
       )}

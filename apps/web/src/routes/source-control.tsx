@@ -275,20 +275,32 @@ function GitLabDetailView({
             />
           )}
 
-          {detail.approval_rules.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">Approvals</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {detail.approval_rules.filter((r) => r.rule_type !== "any_approver" && r.rule_type !== "report_approver" && r.rule_type !== "code_owner").map((rule) => (
-                  <span key={rule.name} className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", rule.approved ? "bg-[rgba(34,197,94,0.12)] text-neon-green" : "bg-[rgba(255,45,123,0.12)] text-neon-pink")}>
-                    {rule.approved ? <Check className="mr-1 inline h-2.5 w-2.5" /> : null}
-                    {rule.name}
-                    {rule.approved_by.length > 0 && <span className="ml-1 opacity-70">({rule.approved_by.join(", ")})</span>}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
+          {detail.approval_rules.length > 0 && (() => {
+            const allApprovers = [...new Set(detail.approval_rules.flatMap((r) => r.approved_by))];
+            const namedRules = detail.approval_rules.filter((r) => r.rule_type !== "any_approver" && r.rule_type !== "report_approver");
+            return (
+              <section>
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">Approvals</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {allApprovers.length > 0 && allApprovers.map((name) => (
+                    <span key={name} className="rounded-full bg-[rgba(34,197,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-neon-green">
+                      <Check className="mr-1 inline h-2.5 w-2.5" />
+                      {name}
+                    </span>
+                  ))}
+                  {allApprovers.length === 0 && (
+                    <span className="text-[10px] text-text-muted">No approvals yet</span>
+                  )}
+                  {namedRules.map((rule) => (
+                    <span key={rule.name} className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", rule.approved ? "bg-[rgba(34,197,94,0.12)] text-neon-green" : "bg-[rgba(255,45,123,0.12)] text-neon-pink")}>
+                      {rule.approved ? <Check className="mr-1 inline h-2.5 w-2.5" /> : null}
+                      {rule.name}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            );
+          })()}
 
           {detail.description && (
             <section>

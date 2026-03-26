@@ -13,6 +13,7 @@ interface BackgroundAgent {
   sessionId: string | null;
   textBuffer: string;  // accumulates text until a structural boundary flushes it to DB
   lineBuffer: string;  // partial stdout line buffer
+  lastToolName: string | null;  // tracks the most recent tool_use name
 }
 
 const running = new Map<string, BackgroundAgent>();
@@ -109,6 +110,7 @@ function handleJsonLine(agent: BackgroundAgent, line: string) {
         flushTextBuffer(agent);
 
         const toolName = String(block.name || "unknown");
+        agent.lastToolName = toolName;
         const input = block.input ? (typeof block.input === "string" ? block.input : JSON.stringify(block.input)) : "";
 
         db.insert(agentMessages).values({
@@ -209,7 +211,8 @@ function attachStdoutParser(agent: BackgroundAgent) {
     // Flush any remaining text
     flushTextBuffer(agent);
 
-    const status = code === 0 ? "completed" : "failed";
+    const askedQuestion = agent.lastToolName === "AskUserQuestion";
+    const status = code === 0 ? (askedQuestion ? "asked_question" : "completed") : "failed";
     db.update(agents)
       .set({ status, exitCode: code, pid: null, updatedAt: now() })
       .where(eq(agents.id, agent.id))
@@ -262,6 +265,7 @@ export function spawnAgent(opts: {
     sessionId: null,
     textBuffer: "",
     lineBuffer: "",
+    lastToolName: null,
   };
 
   running.set(opts.id, agent);
@@ -285,7 +289,7 @@ export function resumeAgent(id: string, userMessage: string): boolean {
   // Look up the agent in DB
   const row = db.select().from(agents).where(eq(agents.id, id)).get();
   if (!row || !row.sessionId) return false;
-  if (row.status !== "completed" && row.status !== "waiting") return false;
+  if (row.status !== "completed" && row.status !== "waiting" && row.status !== "asked_question") return false;
 
   const args = [
     "--print", "--output-format", "stream-json",
@@ -307,6 +311,7 @@ export function resumeAgent(id: string, userMessage: string): boolean {
     sessionId: row.sessionId,
     textBuffer: "",
     lineBuffer: "",
+    lastToolName: null,
   };
 
   running.set(id, newAgent);

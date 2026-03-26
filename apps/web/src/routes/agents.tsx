@@ -25,6 +25,10 @@ const STATUS_CONFIG = {
     dot: "bg-neon-green shadow-[0_0_6px_rgba(0,255,136,0.5)]",
     label: "Waiting",
   },
+  asked_question: {
+    dot: "bg-neon-cyan shadow-[0_0_6px_rgba(34,211,238,0.5)] animate-pulse",
+    label: "Asked Question",
+  },
   completed: {
     dot: "bg-neon-cyan/60",
     label: "Done",
@@ -228,7 +232,7 @@ function AgentsPage() {
           {agentsList.map((agent) => {
             const statusConf = STATUS_CONFIG[agent.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.stopped;
             const isSelected = selectedAgentId === agent.id;
-            const isActive = agent.status === "running" || agent.status === "waiting";
+            const isActive = agent.status === "running" || agent.status === "waiting" || agent.status === "asked_question";
 
             return (
               <div
@@ -316,7 +320,7 @@ function AgentsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {(selectedAgent.status === "running" || selectedAgent.status === "waiting") && (
+                {(selectedAgent.status === "running" || selectedAgent.status === "waiting" || selectedAgent.status === "asked_question") && (
                   <button
                     onClick={() => stopAgent.mutate({ id: selectedAgent.id })}
                     className="rounded-lg bg-[rgba(255,45,123,0.1)] px-3 py-1.5 text-xs font-medium text-neon-pink transition-colors hover:bg-[rgba(255,45,123,0.2)]"

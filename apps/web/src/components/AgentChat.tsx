@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, ChevronRight, Loader2, AlertCircle, Wrench } from "lucide-react";
+import { Send, ChevronRight, Loader2, AlertCircle, Wrench, HelpCircle } from "lucide-react";
 import { trpc } from "@/trpc";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAgentsStore } from "@/stores/agents";
@@ -28,7 +28,13 @@ interface TextMessage {
   content: string;
 }
 
-type ChatBlock = ToolGroup | TextMessage;
+interface QuestionMessage {
+  kind: "question";
+  id: string;
+  question: string;
+}
+
+type ChatBlock = ToolGroup | TextMessage | QuestionMessage;
 
 /** Group consecutive tool_use/tool_result messages into collapsible blocks */
 function groupMessages(
@@ -44,6 +50,26 @@ function groupMessages(
   let currentToolGroup: ToolGroup | null = null;
 
   for (const msg of messages) {
+    if (msg.role === "tool_use" && msg.toolName === "AskUserQuestion") {
+      // Flush any pending tool group before the question
+      if (currentToolGroup) {
+        blocks.push(currentToolGroup);
+        currentToolGroup = null;
+      }
+      // Extract question text from the tool input JSON
+      let question = msg.content;
+      try {
+        const parsed = JSON.parse(msg.content);
+        question = parsed.question || parsed.text || msg.content;
+      } catch { /* use raw content */ }
+      blocks.push({ kind: "question", id: msg.id, question });
+      // Skip the next tool_result for AskUserQuestion (it's a default/empty response)
+      continue;
+    }
+    if (msg.role === "tool_result" && currentToolGroup === null) {
+      // Orphaned tool_result (e.g. from skipped AskUserQuestion) — ignore
+      continue;
+    }
     if (msg.role === "tool_use" || msg.role === "tool_result") {
       if (!currentToolGroup) {
         currentToolGroup = { kind: "tool_group", id: msg.id, items: [] };
@@ -101,7 +127,8 @@ export function AgentChat({ agentId }: AgentChatProps) {
   const agent = agentQuery.data;
   const messages = messagesQuery.data ?? [];
   const isRunning = agent?.status === "running";
-  const canRespond = agent?.status === "completed" || agent?.status === "waiting";
+  const isAskedQuestion = agent?.status === "asked_question";
+  const canRespond = agent?.status === "completed" || agent?.status === "waiting" || isAskedQuestion;
 
   const blocks = groupMessages(messages);
 
@@ -183,6 +210,24 @@ export function AgentChat({ agentId }: AgentChatProps) {
                 <pre className="whitespace-pre-wrap font-sans text-sm text-cream/90 leading-relaxed">
                   {block.content}
                 </pre>
+              </div>
+            );
+          }
+
+          if (block.kind === "question") {
+            return (
+              <div key={block.id} className="max-w-[90%]">
+                <div className="flex items-start gap-3 rounded-xl border border-neon-cyan/30 bg-neon-cyan/[0.06] px-4 py-3">
+                  <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-neon-cyan" />
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neon-cyan/70 mb-1">
+                      Agent has a question
+                    </p>
+                    <pre className="whitespace-pre-wrap font-sans text-sm text-cream leading-relaxed">
+                      {block.question}
+                    </pre>
+                  </div>
+                </div>
               </div>
             );
           }
@@ -305,10 +350,13 @@ export function AgentChat({ agentId }: AgentChatProps) {
           </div>
         ) : canRespond ? (
           <div className="flex items-center gap-2">
+            {isAskedQuestion && (
+              <HelpCircle className="h-4 w-4 shrink-0 text-neon-cyan" />
+            )}
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Send a message..."
+              placeholder={isAskedQuestion ? "Answer the agent's question..." : "Send a message..."}
               rows={1}
               className="flex-1 resize-none rounded-lg border border-border bg-[rgba(0,0,0,0.3)] px-3 py-2 text-sm text-cream placeholder:text-text-muted/50 focus:border-neon-pink/50 focus:outline-none focus:ring-1 focus:ring-neon-pink/30"
               onKeyDown={(e) => {

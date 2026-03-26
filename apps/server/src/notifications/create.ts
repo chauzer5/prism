@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { db } from "../db/index.js";
 import { notifications } from "../db/schema.js";
 import { broadcast } from "../ws/events.js";
@@ -24,5 +25,15 @@ export async function createNotification(input: CreateNotificationInput): Promis
     createdAt: now,
   });
   broadcast({ type: "notification:new", notificationId: id });
+  sendMacNotification(input.title, input.detail);
   return id;
+}
+
+function sendMacNotification(title: string, body?: string) {
+  const script = body
+    ? `display notification ${JSON.stringify(body)} with title ${JSON.stringify(title)}`
+    : `display notification "" with title ${JSON.stringify(title)}`;
+  execFile("osascript", ["-e", script], (err) => {
+    if (err) console.warn("Native notification failed:", err.message);
+  });
 }

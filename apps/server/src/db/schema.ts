@@ -63,7 +63,7 @@ export const agents = sqliteTable("agents", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   prompt: text("prompt"),
-  status: text("status", { enum: ["running", "waiting", "completed", "failed", "stopped"] }).notNull().default("running"),
+  status: text("status", { enum: ["running", "waiting", "completed", "failed", "stopped", "asked_question"] }).notNull().default("running"),
   mode: text("mode", { enum: ["background", "external"] }).notNull().default("background"),
   sessionId: text("session_id"),
   model: text("model"),

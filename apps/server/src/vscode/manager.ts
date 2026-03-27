@@ -1,6 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import path from "node:path";
+import { mkdirSync } from "node:fs";
 
 const VSCODE_PORT = 8767;
+const VSCODE_DATA_DIR = path.join(process.cwd(), "data", "vscode");
+
+// Ensure the persistent data directory exists
+mkdirSync(VSCODE_DATA_DIR, { recursive: true });
 
 let proc: ChildProcess | null = null;
 let status: "stopped" | "starting" | "running" | "error" = "stopped";
@@ -31,6 +37,7 @@ export async function startVSCode(): Promise<{ status: string; port: number }> {
       "--host", "127.0.0.1",
       "--without-connection-token",
       "--accept-server-license-terms",
+      "--user-data-dir", VSCODE_DATA_DIR,
     ], {
       stdio: ["ignore", "pipe", "pipe"],
     });
